@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roa's Proxy Hub</title>
+<style>
+/* ===== GLOBAL ===== */
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
+body{background:#050010;color:white;overflow:hidden;}
+
+/* ===== CANVAS ===== */
+canvas{position:fixed;top:0;left:0;z-index:-1;}
+
+/* ===== FADE ANIMATION ===== */
+.fade-in{animation:fadeIn 0.4s ease forwards;}
+.fade-out{animation:fadeOut 0.4s ease forwards;}
+@keyframes fadeIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+@keyframes fadeOut{from{opacity:1;transform:scale(1);}to{opacity:0;transform:scale(0.95);}}
+
+/* ===== RULES SCREEN ===== */
+#rules{position:fixed;inset:0;background:#000010;display:flex;justify-content:center;align-items:center;z-index:999;}
+.rulesBox{background:rgba(30,0,50,0.85);backdrop-filter:blur(20px);padding:60px 80px;border-radius:25px;text-align:center;max-width:700px;box-shadow:0 0 60px #9b59b6;}
+.rulesBox h2{font-size:2.5rem;margin-bottom:20px;color:#9b59b6;text-shadow:0 0 25px #9b59b6;}
+.rulesBox p{font-size:1.2rem;line-height:1.6;}
+.rulesBox button{margin-top:30px;padding:15px 40px;border:none;border-radius:12px;background:#9b59b6;font-weight:bold;cursor:not-allowed;transition:0.3s;}
+.rulesBox button:enabled{cursor:pointer;}
+.rulesBox button:hover:enabled{background:#6c3483;}
+
+/* ===== HEADER ===== */
+header{display:flex;justify-content:center;align-items:center;padding:40px;position:relative;}
+header h1{font-size:3.5rem;color:#9b59b6;text-shadow:0 0 30px #9b59b6;}
+.settingsBtn{position:absolute;right:50px;padding:12px 25px;border-radius:12px;border:none;background:#1c0033;color:white;box-shadow:0 0 20px #9b59b6;cursor:pointer;transition:0.3s;}
+.settingsBtn:hover{box-shadow:0 0 40px #9b59b6;}
+
+/* ===== GAME GRID ===== */
+#games{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:50px;padding:80px;}
+.card{background:rgba(30,0,50,0.7);backdrop-filter:blur(10px);padding:50px;border-radius:25px;text-align:center;cursor:pointer;font-size:1.4rem;font-weight:bold;box-shadow:0 0 35px #9b59b633;transition:0.3s;position:relative;overflow:hidden;}
+.card:hover{transform:translateY(-10px);box-shadow:0 0 55px #9b59b6;}
+
+/* ===== GOLDEN RECOMMENDED ===== */
+.recommended{background:linear-gradient(45deg,#ffd700,#ffdd33,#ffd700);box-shadow:0 0 25px #ffd700,0 0 50px #ffdd00,0 0 75px #ffdd66;animation:glow 2s infinite alternate;}
+.recommended::after{content:"Recommended⭐";position:absolute;top:10px;right:15px;font-size:1rem;color:#fff;text-shadow:0 0 8px #fff;}
+@keyframes glow{0%{box-shadow:0 0 25px #ffd700,0 0 50px #ffdd00,0 0 75px #ffdd66;}100%{box-shadow:0 0 35px #ffd700,0 0 65px #ffdd00,0 0 100px #ffdd66;}}
+
+/* ===== SATURN CARD ===== */
+.saturn-card{background:linear-gradient(135deg,#4a148c,#6a1b9a);border-radius:25px;padding:50px;text-align:center;color:white;box-shadow:0 0 35px #9b59b6;position:relative;overflow:hidden;}
+.saturn-card:hover{transform:translateY(-10px);box-shadow:0 0 55px #9b59b6;}
+.saturn-label{position:absolute;top:10px;right:15px;font-size:1rem;font-weight:bold;color:#fff;text-shadow:0 0 10px #fff;animation:shine 2s infinite alternate;}
+@keyframes shine{0%{text-shadow:0 0 5px #fff,0 0 10px #9b59b6;}50%{text-shadow:0 0 10px #fff,0 0 20px #9b59b6;}100%{text-shadow:0 0 5px #fff,0 0 10px #9b59b6;}}
+.saturn-bg{position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 50% 50%,#7b1fa2 0%,#4a148c 80%);border-radius:25px;animation:rotate 6s linear infinite;}
+@keyframes rotate{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+
+/* ===== SETTINGS POPUP ===== */
+#popupOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:1000;}
+.popupBox{background:#1c0033;padding:60px 80px;border-radius:25px;box-shadow:0 0 60px #9b59b6;text-align:center;}
+.popupBox button{margin-top:30px;padding:12px 40px;border:none;border-radius:12px;background:#9b59b6;font-weight:bold;cursor:pointer;transition:0.3s;}
+.popupBox button:hover{background:#6c3483;}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<!-- AUDIO ELEMENTS -->
+<audio id="bgSound" loop>
+  <source src="https://www.soundjay.com/nature/space-ambient.mp3" type="audio/mp3">
+</audio>
+<audio id="clickSound">
+  <source src="https://www.soundjay.com/button/beep-07.wav" type="audio/wav">
+</audio>
+<audio id="hoverSound">
+  <source src="https://www.soundjay.com/button/button-16.wav" type="audio/wav">
+</audio>
+
+<!-- RULES MODAL -->
+<div id="rules">
+<div class="rulesBox fade-in">
+<h2>Rules</h2>
+<p>
+Many more game sites and proxy sites are coming soon.<br><br>
+I will add more proxy and games every week or two.<br><br>
+<strong>DO NOT SHARE THIS WITH ANYONE ELSE.</strong><br>
+This will result in a ban/kick from the document.
+</p>
+<button id="acceptBtn" disabled>I Understand (5)</button>
+</div>
+</div>
+
+<header>
+<h1>Roa's Proxy Hub</h1>
+<button class="settingsBtn" onclick="playClick();openPopup()">Settings</button>
+</header>
+
+<!-- GAME CARDS -->
+<section id="games">
+  <div class="card recommended" onclick="playClick();window.location.href='https://bop.education/'">Utopia</div>
+  <div class="card saturn-card" onclick="playClick();window.location.href='https://saturnproxy.games/'">
+    Saturn
+    <div class="saturn-bg"></div>
+    <div class="saturn-label">2nd Recommended🪐</div>
+  </div>
+  <div class="card" onclick="playClick();window.location.href='https://firstspiritualistchurch.org/'">Quasar</div>
+  <div class="card" onclick="playClick();window.location.href='https://school.windowpublication.com.np/s'">Truffled</div>
+  <div class="card" onclick="playClick();window.location.href='https://basketballgames.gitlab.io'">BasketBallGames</div>
+  <div class="card" onclick="playClick();window.location.href='https://chiboga.github.io/chilibowlflash/'">ChiliBowlGames</div>
+  <div class="card" onclick="playClick();window.location.href='https://boredmath.github.io/cbf/'">ChiliBowlGames (2)</div>
+</section>
+
+<!-- SETTINGS POPUP -->
+<div id="popupOverlay">
+<div class="popupBox fade-in">
+<h2>Coming Soon! ;) - Roa</h2>
+<button onclick="playClick();closePopup()">Okay!</button>
+</div>
+</div>
+
+<script>
+/* CLICK AND HOVER SOUNDS */
+const clickSound=document.getElementById("clickSound");
+const hoverSound=document.getElementById("hoverSound");
+const bgSound=document.getElementById("bgSound");
+
+let firstInteraction=false;
+document.addEventListener("click",()=>{
+  if(!firstInteraction){
+    bgSound.play().catch(()=>{});
+    firstInteraction=true;
+  }
+});
+
+function playClick(){clickSound.currentTime=0;clickSound.play();}
+function playHover(){hoverSound.currentTime=0;hoverSound.play();}
+
+document.querySelectorAll('.card, .settingsBtn, .rulesBox button, .popupBox button').forEach(el=>{
+  el.addEventListener('mouseenter',playHover);
+});
+
+/* RULES COUNTDOWN */
+let time=5;
+let btn=document.getElementById("acceptBtn");
+let countdown=setInterval(()=>{
+  time--;
+  btn.textContent="I Understand ("+time+")";
+  if(time<=0){clearInterval(countdown);btn.textContent="I Understand";btn.disabled=false;}
+},1000);
+btn.onclick=()=>{playClick();document.getElementById("rules").classList.add("fade-out");setTimeout(()=>{document.getElementById("rules").style.display="none";document.body.style.overflow="auto";},400);};
+
+/* SETTINGS POPUP */
+function openPopup(){let overlay=document.getElementById("popupOverlay");overlay.style.display="flex";overlay.querySelector(".popupBox").classList.remove("fade-out");overlay.querySelector(".popupBox").classList.add("fade-in");}
+function closePopup(){let box=document.querySelector(".popupBox");box.classList.remove("fade-in");box.classList.add("fade-out");setTimeout(()=>{document.getElementById("popupOverlay").style.display="none";},400);}
+
+/* SHOOTING STARS */
+const canvas=document.getElementById("stars");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+let stars=[];
+for(let i=0;i<200;i++){stars.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,size:Math.random()*2,speed:Math.random()*0.7});}
+function animate(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#9b59b6";stars.forEach(star=>{star.y+=star.speed;if(star.y>canvas.height){star.y=0;star.x=Math.random()*canvas.width;}ctx.fillRect(star.x,star.y,star.size,star.size);});requestAnimationFrame(animate);}
+animate();
+window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;});
+</script>
+</body>
+</html>
