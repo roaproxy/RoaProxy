@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Roa's Proxy Hub</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron&family=Montserrat&family=Rajdhani&family=Press+Start+2P&family=Audiowide&family=Righteous&family=Space+Grotesk&family=Teko&family=Outfit&family=Titillium+Web&family=Exo+2&family=Kanit&family=Ubuntu&family=Oswald&family=Comfortaa&family=Quicksand&family=Anton&family=Bebas+Neue&family=Abel&family=Barlow&family=Chakra+Petch&family=Dosis&family=Electrolize&family=Fira+Sans&family=Lobster&display=swap" rel="stylesheet">
+
+<style>
+body{
+margin:0;
+background:#000;
+color:white;
+font-family:'Orbitron',sans-serif;
+text-align:center;
+overflow-x:hidden;
+transition:.4s;
+}
+
+/* Overlay */
+.overlay{
+position:fixed;
+width:100%;
+height:100%;
+top:0;
+left:0;
+background:rgba(0,0,0,.6);
+backdrop-filter:blur(8px);
+opacity:0;
+pointer-events:none;
+transition:.3s;
+z-index:998;
+}
+.overlay.active{
+opacity:1;
+pointer-events:auto;
+}
+
+/* Title */
+h1{
+margin-top:90px;
+font-size:48px;
+text-shadow:0 0 25px purple;
+}
+
+/* Buttons */
+.button{
+display:inline-block;
+margin:18px;
+padding:18px 50px;
+background:rgba(0,0,0,.7);
+border:2px solid purple;
+color:white;
+font-size:20px;
+border-radius:18px;
+cursor:pointer;
+box-shadow:0 0 20px purple;
+transition:all .3s ease;
+}
+
+.button.animate:hover{
+transform:translateY(-6px) scale(1.05);
+}
+
+/* Small Key */
+.key-button{
+position:fixed;
+bottom:15px;
+left:50%;
+transform:translateX(-50%);
+font-size:12px;
+opacity:.5;
+cursor:pointer;
+}
+.key-button:hover{opacity:1}
+
+/* Popup */
+.key-popup{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%) scale(.8);
+background:rgba(20,20,20,.95);
+padding:35px;
+border-radius:20px;
+box-shadow:0 0 40px purple;
+display:none;
+z-index:999;
+opacity:0;
+transition:.3s;
+}
+.key-popup.active{
+display:block;
+opacity:1;
+transform:translate(-50%,-50%) scale(1);
+}
+
+.settings-toggle{
+position:fixed;
+top:20px;
+left:20px;
+display:none;
+padding:10px 18px;
+background:#111;
+border-radius:12px;
+box-shadow:0 0 20px purple;
+cursor:pointer;
+z-index:1000;
+}
+
+.settings{
+position:fixed;
+top:0;
+left:-400px;
+width:360px;
+height:100%;
+background:#111;
+box-shadow:5px 0 35px purple;
+padding:25px;
+overflow-y:auto;
+transition:.4s;
+z-index:999;
+}
+.settings.open{left:0}
+
+.settings h2{text-shadow:0 0 15px purple}
+
+input,select{
+width:100%;
+padding:8px;
+margin:6px 0;
+border-radius:8px;
+border:none;
+}
+
+/* Animated Backgrounds */
+.snow::before{
+content:"";
+position:fixed;
+width:100%;
+height:100%;
+background:url('https://i.imgur.com/5cX1KXj.png');
+animation:snow 10s linear infinite;
+opacity:.4;
+z-index:-1;
+}
+@keyframes snow{
+from{background-position:0 0}
+to{background-position:0 1000px}
+}
+
+.stars::before{
+content:"";
+position:fixed;
+width:100%;
+height:100%;
+background:url('https://i.imgur.com/9Q9Z1Zm.gif');
+background-size:cover;
+opacity:.6;
+z-index:-1;
+}
+
+.galaxy{
+background:radial-gradient(circle,#1a0025,#000);
+animation:pulse 6s infinite alternate;
+}
+@keyframes pulse{
+0%{filter:hue-rotate(0deg)}
+100%{filter:hue-rotate(60deg)}
+}
+
+.grid{
+background:
+linear-gradient(#0f0 1px,transparent 1px),
+linear-gradient(90deg,#0f0 1px,transparent 1px);
+background-size:40px 40px;
+animation:moveGrid 5s linear infinite;
+}
+@keyframes moveGrid{
+from{background-position:0 0}
+to{background-position:40px 40px}
+}
+
+.fog{
+background:radial-gradient(circle,#222,#000);
+animation:fogMove 8s infinite alternate;
+}
+@keyframes fogMove{
+0%{filter:blur(2px)}
+100%{filter:blur(6px)}
+}
+
+.cyber{
+background:linear-gradient(120deg,#0ff,#f0f,#00f);
+background-size:300% 300%;
+animation:cyberMove 6s infinite alternate;
+}
+@keyframes cyberMove{
+0%{background-position:0% 50%}
+100%{background-position:100% 50%}
+}
+
+.hidden{display:none}
+
+.notifier{
+position:fixed;
+bottom:60px;
+left:50%;
+transform:translateX(-50%);
+background:black;
+padding:15px 35px;
+border:2px solid lime;
+border-radius:15px;
+box-shadow:0 0 25px lime;
+display:none;
+z-index:1001;
+}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeAll()"></div>
+
+<div class="settings-toggle" id="settingsBtn" onclick="toggleSettings()">⚙ Customizer</div>
+
+<div class="settings" id="settingsPanel">
+<h2>Customizer</h2>
+
+<label>Font (25+)</label>
+<select id="fontSelect"></select>
+
+<label>Neon Color</label>
+<input type="color" id="neonColor">
+
+<label>Background Color</label>
+<input type="color" id="bgColor">
+
+<label>Glow Strength (1–5)</label>
+<input type="range" min="1" max="5" step="0.5" id="glowSlider">
+
+<label>UI Radius</label>
+<input type="range" min="0" max="40" id="radiusSlider">
+
+<label>Button Animation</label>
+<select id="animToggle">
+<option value="on">Enabled</option>
+<option value="off">Disabled</option>
+</select>
+
+<label>Animated Background</label>
+<select id="bgSelect">
+<option value="">None</option>
+<option value="snow">Snow</option>
+<option value="stars">Stars</option>
+<option value="galaxy">Galaxy</option>
+<option value="grid">Neon Grid</option>
+<option value="fog">Fog</option>
+<option value="cyber">Cyber</option>
+</select>
+
+<button class="button" onclick="saveSettings()">Save Settings</button>
+<button class="button" onclick="toggleSettings()">Close</button>
+</div>
+
+<h1>Roa's Proxy Hub</h1>
+
+<div class="button animate">ChiliBowl Games 1</div>
+<div class="button animate">ChiliBowl Games 2</div>
+<div class="button animate">Basketball Games</div>
+
+<div id="lockedContent" class="hidden">
+<div class="button animate">Shadow</div>
+<div class="button animate">Truffled</div>
+<div class="button animate">Quasar</div>
+<div class="button animate">Utopia</div>
+</div>
+
+<div class="key-button" onclick="openKey()">Enter Key For Full Access!</div>
+
+<div class="key-popup" id="keyPopup">
+<h3>Enter Access Key</h3>
+<input type="text" id="keyInput">
+<br><br>
+<button class="button" onclick="checkKey()">Submit</button>
+</div>
+
+<div class="notifier" id="notifier">Proxy Updated!</div>
+
+<script>
+
+const fonts=[...document.fonts].map(f=>f.family);
+const fontList=["Orbitron","Montserrat","Rajdhani","Press Start 2P","Audiowide","Righteous","Space Grotesk","Teko","Outfit","Titillium Web","Exo 2","Kanit","Ubuntu","Oswald","Comfortaa","Quicksand","Anton","Bebas Neue","Abel","Barlow","Chakra Petch","Dosis","Electrolize","Fira Sans","Lobster"];
+let select=document.getElementById("fontSelect");
+fontList.forEach(f=>{
+let opt=document.createElement("option");
+opt.textContent=f;
+opt.value=f;
+select.appendChild(opt);
+});
+
+function openKey(){
+overlay.classList.add("active");
+keyPopup.classList.add("active");
+}
+function closeAll(){
+overlay.classList.remove("active");
+keyPopup.classList.remove("active");
+settingsPanel.classList.remove("open");
+}
+function checkKey(){
+if(keyInput.value==="Key-376026"){
+unlock();
+localStorage.setItem("proxyUnlocked","true");
+closeAll();
+}else alert("Incorrect Key");
+}
+function unlock(){
+lockedContent.classList.remove("hidden");
+settingsBtn.style.display="block";
+showNote();
+}
+function showNote(){
+notifier.style.display="block";
+setTimeout(()=>notifier.style.display="none",3000);
+}
+function toggleSettings(){
+overlay.classList.toggle("active");
+settingsPanel.classList.toggle("open");
+}
+
+function saveSettings(){
+localStorage.setItem("font",fontSelect.value);
+localStorage.setItem("neon",neonColor.value);
+localStorage.setItem("bg",bgColor.value);
+localStorage.setItem("glow",glowSlider.value);
+localStorage.setItem("radius",radiusSlider.value);
+localStorage.setItem("anim",animToggle.value);
+localStorage.setItem("bgAnim",bgSelect.value);
+applySettings();
+}
+
+function applySettings(){
+document.body.style.fontFamily=localStorage.getItem("font")||"Orbitron";
+document.body.style.background=localStorage.getItem("bg")||"#000";
+
+let neon=localStorage.getItem("neon")||"purple";
+document.querySelectorAll(".button").forEach(b=>{
+b.style.borderColor=neon;
+b.style.boxShadow="0 0 "+((localStorage.getItem("glow")||2.5)*10)+"px "+neon;
+b.style.borderRadius=(localStorage.getItem("radius")||18)+"px";
+if(localStorage.getItem("anim")==="off") b.classList.remove("animate");
+else b.classList.add("animate");
+});
+
+document.body.className="";
+let bgAnim=localStorage.getItem("bgAnim");
+if(bgAnim) document.body.classList.add(bgAnim);
+}
+
+if(localStorage.getItem("proxyUnlocked")==="true") unlock();
+applySettings();
+
+</script>
+
+</body>
+</html>
