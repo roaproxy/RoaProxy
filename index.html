@@ -1,0 +1,1732 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roa's Proxy Hub</title>
+
+  <!-- 25+ fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Montserrat:wght@400;700&family=Rajdhani:wght@400;700&family=Space+Grotesk:wght@400;700&family=Outfit:wght@400;700&family=Titillium+Web:wght@400;700&family=Exo+2:wght@400;700&family=Kanit:wght@400;700&family=Ubuntu:wght@400;700&family=Oswald:wght@400;700&family=Comfortaa:wght@400;700&family=Quicksand:wght@400;700&family=Anton&family=Bebas+Neue&family=Abel&family=Barlow:wght@400;700&family=Cairo:wght@400;700&family=Chakra+Petch:wght@400;700&family=Dosis:wght@400;700&family=Electrolize&family=Fira+Sans:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Inter:wght@400;700&family=Josefin+Sans:wght@400;700&family=Nunito:wght@400;700&family=PT+Sans:wght@400;700&family=Righteous&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --neon: #9b59b6;
+      --bg: #070012;
+      --glow: 2.6;     /* 1..5 */
+      --radius: 28px;  /* 0..44 */
+      --text: rgba(255,255,255,.92);
+      --muted: rgba(255,255,255,.65);
+    }
+
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; }
+
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at 50% -150px, rgba(155,89,182,.25), transparent 60%),
+        radial-gradient(900px 500px at 10% 20%, rgba(155,89,182,.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: Orbitron, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      overflow-x:hidden;
+    }
+
+    /* Starfield canvas */
+    canvas#stars{ position: fixed; inset: 0; z-index: -2; }
+
+    /* Soft vignette */
+    .vignette{
+      position: fixed; inset: 0; pointer-events:none; z-index:-1;
+      background: radial-gradient(1200px 700px at 50% 40%, transparent 35%, rgba(0,0,0,.45) 72%, rgba(0,0,0,.75) 100%);
+      opacity:.9;
+    }
+
+    /* Overlays for dev tools */
+    #spotlight{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity .18s ease;
+      background: radial-gradient(circle 140px at 50% 50%, rgba(255,255,255,.10), rgba(0,0,0,.65) 60%, rgba(0,0,0,.85) 100%);
+    }
+    .spotlightOn #spotlight{ opacity: 1; }
+
+    #gridOverlay{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 5;
+      opacity: 0;
+      transition: opacity .18s ease;
+      background:
+        linear-gradient(rgba(155,89,182,.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(155,89,182,.16) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+    .gridOn #gridOverlay{ opacity: .28; }
+
+    #fpsMeter{
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      color: rgba(255,255,255,.88);
+      font-weight: 900;
+      z-index: 90;
+      display:none;
+    }
+    #fpsMeter.show{ display:block; }
+
+    /* Top bar */
+    .topbar{
+      position: fixed; top: 22px; left: 22px; right: 22px;
+      display:flex; align-items:center; justify-content:space-between;
+      z-index: 30; pointer-events:none;
+    }
+    .topbar > *{ pointer-events:auto; }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding: 12px 18px; border-radius: 999px;
+      border: 1px solid rgba(155,89,182,.35);
+      background: rgba(10,0,25,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 calc(14px * var(--glow)) rgba(155,89,182,.25);
+      color: var(--text); cursor:pointer; user-select:none;
+      transition: transform .18s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease, opacity .25s ease;
+    }
+    .pill:hover{
+      transform: translateY(-1px);
+      border-color: rgba(155,89,182,.55);
+      box-shadow: 0 0 calc(22px * var(--glow)) rgba(155,89,182,.35);
+      background: rgba(16,0,32,.62);
+    }
+
+    /* Animated Update Log button */
+    .updateBtn{ position: relative; overflow:hidden; }
+    .updateBtn::after{
+      content:""; position:absolute; inset:-40% -60%;
+      background: linear-gradient(90deg, transparent, rgba(155,89,182,.35), transparent);
+      transform: translateX(-60%) rotate(10deg);
+      animation: sweep 2.2s linear infinite;
+      pointer-events:none;
+    }
+    @keyframes sweep{ 0%{transform:translateX(-80%) rotate(10deg)} 100%{transform:translateX(80%) rotate(10deg)} }
+
+    /* Title */
+    .titleWrap{ margin-top: 90px; display:flex; justify-content:center; padding: 0 20px; }
+    h1{
+      margin:0;
+      font-size: clamp(38px, 4.4vw, 62px);
+      letter-spacing: 1px;
+      color: rgba(155,89,182,.95);
+      text-shadow: 0 0 20px rgba(155,89,182,.55), 0 0 50px rgba(155,89,182,.25);
+      font-weight: 800;
+    }
+
+    /* Grid */
+    .grid{
+      width: min(1320px, calc(100% - 56px));
+      margin: 52px auto 120px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 34px;
+    }
+    @media (max-width: 980px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 640px){ .grid{ grid-template-columns: 1fr; } }
+
+    /* wrapper so we can put a small button under Lunar */
+    .cardWrap{ display:flex; flex-direction:column; align-items:stretch; }
+
+    .card{
+      position: relative;
+      border-radius: var(--radius);
+      padding: 34px 28px;
+      height: 128px;
+      display:flex; align-items:center; justify-content:center;
+      text-align:center;
+      cursor:pointer; user-select:none;
+
+      background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02)) , rgba(28, 0, 55, .70);
+      border: 1px solid rgba(155,89,182,.18);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 50px rgba(0,0,0,.35), 0 0 calc(14px * var(--glow)) rgba(155,89,182,.18);
+      transition: transform .18s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+    .card:hover{
+      transform: translateY(-6px);
+      border-color: rgba(155,89,182,.40);
+      box-shadow: 0 18px 70px rgba(0,0,0,.42), 0 0 calc(24px * var(--glow)) rgba(155,89,182,.30);
+    }
+
+    .cardTitle{
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing:.3px;
+      color: rgba(255,255,255,.92);
+      text-shadow: 0 0 14px rgba(0,0,0,.35);
+    }
+
+    /* Recommended (Utopia style) */
+    .recommended{
+      background: linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.05)), #ffd400;
+      border: 1px solid rgba(255,220,120,.55);
+      box-shadow: 0 18px 70px rgba(0,0,0,.40), 0 0 90px rgba(255,215,0,.45);
+    }
+    .recommended:hover{
+      box-shadow: 0 18px 90px rgba(0,0,0,.45), 0 0 120px rgba(255,215,0,.60);
+    }
+
+    .badge{
+      position:absolute; top: 14px; right: 18px;
+      font-size: 14px; font-weight: 800;
+      color: rgba(255,255,255,.92);
+      text-shadow: 0 0 18px rgba(0,0,0,.35);
+      display:flex; align-items:center; gap:6px; opacity:.95;
+    }
+
+    /* Lunar special (reuses the old "rosin" vibe) */
+    .rosin{
+      overflow:hidden;
+      background: linear-gradient(135deg, rgba(255,255,255,.09), rgba(255,255,255,.03)), rgba(78, 22, 140, .75);
+      border: 1px solid rgba(155,89,182,.30);
+    }
+    .rosin::before{
+      content:"";
+      position:absolute; inset:-2px;
+      border-radius: calc(var(--radius) + 2px);
+      background: conic-gradient(from 180deg,
+        rgba(155,89,182,.0),
+        rgba(155,89,182,.65),
+        rgba(255,255,255,.25),
+        rgba(155,89,182,.65),
+        rgba(155,89,182,.0));
+      filter: blur(10px);
+      opacity:.55;
+      animation: spin 2.8s linear infinite;
+      z-index:0;
+    }
+    .rosin::after{
+      content:"";
+      position:absolute; inset:0;
+      border-radius: var(--radius);
+      background: radial-gradient(800px 200px at 20% 20%, rgba(255,255,255,.14), transparent 55%),
+                  radial-gradient(600px 220px at 80% 40%, rgba(155,89,182,.18), transparent 55%);
+      z-index:0;
+      pointer-events:none;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+    .rosin .cardTitle{ position:relative; z-index:1; text-shadow: 0 0 22px rgba(155,89,182,.45); }
+    .rosin .badge{
+      z-index:1; left: 18px; right:auto;
+      background: rgba(0,0,0,.25);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Lunar options button (under Lunar card) */
+    .subBtnWrap{
+      margin-top: 10px;
+      display:flex;
+      justify-content:center;
+    }
+    .subBtn{
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(155,89,182,.30);
+      background: rgba(10,0,25,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 calc(10px * var(--glow)) rgba(155,89,182,.18);
+      color: rgba(255,255,255,.88);
+      font-weight: 900;
+      cursor:pointer;
+      transition: transform .16s ease, border-color .2s ease, background .2s ease;
+      white-space: nowrap;
+    }
+    .subBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(155,89,182,.55);
+      background: rgba(16,0,32,.62);
+    }
+    .subBtn:active{ transform: translateY(0); }
+
+    /* Bottom key strip */
+    .keyStrip{
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      z-index: 25;
+      display:flex; align-items:center; gap:10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(155,89,182,.30);
+      background: rgba(10,0,25,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 calc(14px * var(--glow)) rgba(155,89,182,.20);
+    }
+    .keyStrip span{
+      font-size: 13px; color: var(--muted); font-weight: 700; letter-spacing:.2px; padding-left: 8px;
+    }
+    .keyStrip input{
+      width: 190px; padding: 10px 12px; border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.28);
+      color: rgba(255,255,255,.9);
+      outline:none;
+    }
+    .keyStrip input::placeholder{ color: rgba(255,255,255,.35); }
+    .keyStrip button{
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(155,89,182,.35);
+      background: rgba(155,89,182,.20);
+      color: rgba(255,255,255,.92);
+      font-weight: 800;
+      cursor:pointer;
+      transition: transform .18s ease, background .18s ease, border-color .18s ease;
+    }
+    .keyStrip button:hover{
+      transform: translateY(-1px);
+      background: rgba(155,89,182,.28);
+      border-color: rgba(155,89,182,.55);
+    }
+
+    /* Modals */
+    .modalOverlay{
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      display:none; align-items:center; justify-content:center;
+      z-index: 100; padding: 18px;
+    }
+    .modalOverlay.show{ display:flex; }
+    .modal{
+      width: min(560px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(155,89,182,.28);
+      background: rgba(12,0,28,.78);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 80px rgba(0,0,0,.55), 0 0 calc(22px * var(--glow)) rgba(155,89,182,.20);
+      transform: translateY(10px) scale(.98);
+      opacity: 0;
+      transition: transform .22s ease, opacity .22s ease;
+      overflow:hidden;
+    }
+    .modalOverlay.show .modal{ transform: translateY(0) scale(1); opacity: 1; }
+    .modalHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .modalHeader h2{ margin:0; font-size: 16px; color: rgba(255,255,255,.9); letter-spacing:.2px; }
+    .closeBtn{
+      width: 36px; height: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      color: rgba(255,255,255,.85);
+      cursor:pointer;
+      transition: transform .18s ease;
+    }
+    .closeBtn:hover{ transform: scale(1.04); }
+    .modalBody{ padding: 18px; text-align:left; }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 540px){ .row{ grid-template-columns: 1fr; } }
+
+    .field label{
+      display:block;
+      font-size: 12px;
+      color: rgba(255,255,255,.70);
+      margin-bottom: 7px;
+      font-weight: 800;
+      letter-spacing:.15px;
+    }
+    .field select{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      color: rgba(255,255,255,.9);
+      outline:none;
+    }
+    .field input[type="color"]{
+      width:100%;
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.25);
+      padding: 6px;
+    }
+    .field input[type="range"]{ width:100%; accent-color: var(--neon); }
+
+    .actions{ display:flex; gap: 10px; justify-content:flex-end; margin-top: 6px; }
+    .primary{
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(155,89,182,.35);
+      background: rgba(155,89,182,.22);
+      color: rgba(255,255,255,.92);
+      font-weight: 900;
+      cursor:pointer;
+    }
+    .secondary{
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.82);
+      font-weight: 900;
+      cursor:pointer;
+    }
+
+    /* Toast */
+    .toast{
+      position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+      padding: 12px 16px; border-radius: 14px;
+      border: 1px solid rgba(0,255,120,.35);
+      background: rgba(0,0,0,.55);
+      box-shadow: 0 0 40px rgba(0,255,120,.20);
+      color: rgba(220,255,235,.92);
+      font-weight: 900;
+      display:none; z-index: 120;
+      backdrop-filter: blur(10px);
+    }
+    .toast.show{ display:block; animation: toastIn .22s ease forwards; }
+    @keyframes toastIn{
+      from{ opacity:0; transform: translateX(-50%) translateY(10px); }
+      to{ opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .lockedNote{
+      margin: 22px auto 0;
+      width: min(980px, calc(100% - 56px));
+      color: rgba(255,255,255,.55);
+      font-weight: 700;
+      letter-spacing:.2px;
+      text-align:center;
+    }
+
+    /* ===== Stable Animated Backgrounds (pure CSS; no external assets) ===== */
+    body[data-bg="snow"]::before,
+    body[data-bg="matrix"]::before,
+    body[data-bg="galaxy"]::before,
+    body[data-bg="grid"]::before,
+    body[data-bg="cyber"]::before{
+      content:"";
+      position: fixed;
+      inset: -20%;
+      z-index: -3;
+      pointer-events: none;
+    }
+
+    body[data-bg="snow"]::before{
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,.95) 1px, transparent 2px),
+        radial-gradient(circle, rgba(255,255,255,.70) 1px, transparent 2px),
+        radial-gradient(circle, rgba(255,255,255,.85) 1px, transparent 2px);
+      background-size: 140px 140px, 220px 220px, 320px 320px;
+      background-position: 0 0, 40px 80px, 120px 40px;
+      opacity: .18;
+      animation: roaSnow 10s linear infinite;
+    }
+    @keyframes roaSnow{ from{ transform: translate3d(0,-6%,0);} to{ transform: translate3d(0,10%,0);} }
+
+    body[data-bg="matrix"]::before{
+      inset: 0;
+      background:
+        linear-gradient(to bottom, rgba(0,255,140,.10), transparent 55%),
+        repeating-linear-gradient(90deg, rgba(0,255,140,.11) 0 2px, transparent 2px 28px),
+        repeating-linear-gradient(to bottom, rgba(0,255,140,.08) 0 14px, transparent 14px 40px);
+      mix-blend-mode: screen;
+      opacity: .22;
+      animation: roaMatrix 2.6s linear infinite;
+    }
+    @keyframes roaMatrix{
+      from{ background-position: 0 0, 0 0, 0 0; }
+      to{ background-position: 0 260px, 0 0, 0 520px; }
+    }
+
+    body[data-bg="galaxy"]::before{
+      background:
+        radial-gradient(circle at 30% 30%, rgba(155,89,182,.22), transparent 55%),
+        radial-gradient(circle at 70% 55%, rgba(120,80,255,.18), transparent 58%),
+        radial-gradient(circle at 55% 80%, rgba(255,80,200,.10), transparent 58%);
+      filter: blur(18px);
+      opacity: 1;
+      animation: roaGalaxy 6s ease-in-out infinite alternate;
+    }
+    @keyframes roaGalaxy{
+      0%{ transform: translate3d(-2%,-1%,0) scale(1.02); filter: blur(18px) hue-rotate(0deg); }
+      100%{ transform: translate3d(2%,1%,0) scale(1.08); filter: blur(22px) hue-rotate(65deg); }
+    }
+
+    body[data-bg="grid"]::before{
+      inset: 0;
+      background:
+        linear-gradient(rgba(155,89,182,.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(155,89,182,.18) 1px, transparent 1px);
+      background-size: 56px 56px;
+      opacity: .16;
+      transform: perspective(900px) rotateX(55deg) translateY(20%);
+      transform-origin: 50% 0%;
+      animation: roaGrid 3.2s linear infinite;
+    }
+    @keyframes roaGrid{ from{ background-position:0 0,0 0;} to{ background-position:0 56px,0 0;} }
+
+    body[data-bg="cyber"]::before{
+      background: linear-gradient(120deg, rgba(0,255,255,.16), rgba(255,0,255,.14), rgba(120,80,255,.16));
+      background-size: 300% 300%;
+      filter: blur(26px);
+      opacity: .55;
+      animation: roaCyber 7s ease-in-out infinite alternate;
+    }
+    @keyframes roaCyber{
+      0%{ background-position: 0% 50%; transform: rotate(-2deg) scale(1.05); }
+      100%{ background-position: 100% 50%; transform: rotate(2deg) scale(1.10); }
+    }
+
+    /* Lunar variants list buttons */
+    .variantBtn{
+      width:100%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      color: rgba(255,255,255,.92);
+      font-weight: 900;
+      cursor:pointer;
+      transition: transform .12s ease, border-color .18s ease, background .18s ease;
+      text-align:left;
+      margin-bottom: 10px;
+    }
+    .variantBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(155,89,182,.35);
+      background: rgba(0,0,0,.30);
+    }
+
+    /* ===== Admin + Dev panel (unchanged) ===== */
+    #adminBtn{
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(155,89,182,.35);
+      background: rgba(10,0,25,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 calc(14px * var(--glow)) rgba(155,89,182,.25);
+      cursor: pointer;
+      z-index: 60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition: transform .18s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+    #adminBtn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(155,89,182,.55);
+      box-shadow: 0 0 calc(22px * var(--glow)) rgba(155,89,182,.35);
+    }
+    #adminBtn svg{ width: 20px; height: 20px; opacity: .92; }
+
+    .devOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 200;
+      padding: 18px;
+    }
+    .devOverlay.show{ display:flex; }
+
+    .keypad{
+      width: min(420px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(155,89,182,.28);
+      background: rgba(12,0,28,.78);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 80px rgba(0,0,0,.55),
+                  0 0 calc(22px * var(--glow)) rgba(155,89,182,.20);
+      overflow:hidden;
+      transform: translateY(10px) scale(.98);
+      opacity: 0;
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .devOverlay.show .keypad{ transform: translateY(0) scale(1); opacity: 1; }
+
+    .keypadHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .keypadHeader h2{
+      margin:0;
+      font-size: 16px;
+      color: rgba(255,255,255,.9);
+      letter-spacing:.2px;
+    }
+    .keypadBody{ padding: 16px 18px 18px; }
+
+    .pinDots{
+      display:flex;
+      gap: 10px;
+      justify-content:center;
+      margin: 10px 0 16px;
+    }
+    .dot{
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25);
+      box-shadow: 0 0 18px rgba(155,89,182,.10);
+    }
+    .dot.filled{
+      background: rgba(155,89,182,.75);
+      border-color: rgba(155,89,182,.65);
+      box-shadow: 0 0 24px rgba(155,89,182,.25);
+    }
+
+    .padGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .padKey{
+      padding: 14px 0;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      color: rgba(255,255,255,.90);
+      font-weight: 900;
+      font-size: 16px;
+      cursor:pointer;
+      transition: transform .12s ease, background .18s ease, border-color .18s ease;
+    }
+    .padKey:hover{ transform: translateY(-1px); background: rgba(0,0,0,.30); border-color: rgba(155,89,182,.35); }
+    .padKey:active{ transform: translateY(0); }
+
+    .padActions{
+      display:flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .padActions .padKey{ flex:1; }
+
+    .devPanel{
+      position: fixed;
+      right: 18px;
+      bottom: 74px;
+      width: min(390px, calc(100% - 36px));
+      border-radius: 22px;
+      border: 1px solid rgba(155,89,182,.28);
+      background: rgba(12,0,28,.78);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 20px 80px rgba(0,0,0,.55),
+                  0 0 calc(22px * var(--glow)) rgba(155,89,182,.20);
+      z-index: 70;
+      overflow:hidden;
+      display:none;
+      transform-origin: 100% 100%;
+    }
+    .devPanel.show{
+      display:block;
+      animation: devIn .18s ease forwards;
+    }
+    @keyframes devIn{
+      from{ opacity:0; transform: translateY(10px) scale(.98); }
+      to{ opacity:1; transform: translateY(0) scale(1); }
+    }
+    .devPanelHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      gap: 10px;
+    }
+    .devPanelHeader h3{
+      margin:0;
+      font-size: 14px;
+      letter-spacing:.25px;
+      color: rgba(255,255,255,.9);
+      white-space: nowrap;
+    }
+    .devPanelBody{ padding: 12px 14px 14px; }
+
+    .devTabs{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap: nowrap;
+    }
+    .devTab{
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.20);
+      color: rgba(255,255,255,.85);
+      font-weight: 900;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .12s ease, border-color .18s ease, background .18s ease;
+    }
+    .devTab:hover{ transform: translateY(-1px); border-color: rgba(155,89,182,.35); }
+    .devTab.active{
+      border-color: rgba(155,89,182,.55);
+      box-shadow: 0 0 calc(12px * var(--glow)) rgba(155,89,182,.20);
+      background: rgba(0,0,0,.28);
+    }
+
+    .devPage{ display:none; gap: 10px; }
+    .devPage.show{ display:grid; }
+
+    .devCmd{
+      width:100%;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      color: rgba(255,255,255,.92);
+      font-weight: 900;
+      cursor:pointer;
+      transition: transform .12s ease, border-color .18s ease, background .18s ease;
+    }
+    .devCmd:hover{
+      transform: translateY(-1px);
+      border-color: rgba(155,89,182,.35);
+      background: rgba(0,0,0,.30);
+    }
+
+    @keyframes wobble{
+      0%{ transform: translateX(0); }
+      20%{ transform: translateX(-3px); }
+      40%{ transform: translateX(3px); }
+      60%{ transform: translateX(-2px); }
+      80%{ transform: translateX(2px); }
+      100%{ transform: translateX(0); }
+    }
+    .shakeMode .grid{ animation: wobble .35s linear infinite; }
+
+    .trailDot{
+      position: fixed;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      pointer-events:none;
+      z-index: 80;
+      opacity: .75;
+      background: rgba(155,89,182,.9);
+      box-shadow: 0 0 18px rgba(155,89,182,.35);
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .slowMo *{
+      transition-duration: .8s !important;
+      animation-duration: 2.8s !important;
+    }
+
+    .hitboxOn .card, .hitboxOn .pill, .hitboxOn .keyStrip, .hitboxOn #adminBtn{
+      outline: 2px dashed rgba(0,255,170,.55);
+      outline-offset: 3px;
+    }
+
+    .bouncy .card:hover{ transform: translateY(-8px) scale(1.02); }
+
+    .nightVision{
+      filter: hue-rotate(70deg) saturate(1.2) brightness(1.05);
+    }
+
+    /* Rainbow BUTTONS mode (buttons become rainbow) */
+    .rainbowMode .card,
+    .rainbowMode .pill,
+    .rainbowMode .devCmd,
+    .rainbowMode .devTab,
+    .rainbowMode #adminBtn,
+    .rainbowMode .keyStrip button,
+    .rainbowMode .subBtn{
+      background: linear-gradient(90deg,
+        rgba(255,0,120,.85),
+        rgba(255,210,0,.85),
+        rgba(0,255,170,.85),
+        rgba(0,140,255,.85),
+        rgba(180,0,255,.85),
+        rgba(255,0,120,.85)
+      ) !important;
+      background-size: 300% 100% !important;
+      animation: rainbowFill 2.5s linear infinite !important;
+      border-color: rgba(255,255,255,.22) !important;
+      color: rgba(20,0,30,.92) !important;
+      text-shadow: none !important;
+    }
+    @keyframes rainbowFill{
+      0%{ background-position: 0% 50%; }
+      100%{ background-position: 100% 50%; }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="stars"></canvas>
+  <div class="vignette"></div>
+
+  <!-- dev overlays -->
+  <div id="spotlight"></div>
+  <div id="gridOverlay"></div>
+  <div id="fpsMeter">FPS: --</div>
+
+  <div class="topbar">
+    <button class="pill updateBtn" id="updateBtn">Update Log</button>
+    <button class="pill" id="settingsBtn" style="opacity:.55" title="Unlock to use settings">Settings</button>
+  </div>
+
+  <div class="titleWrap">
+    <h1>Roa's Proxy Hub</h1>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="lockedNote" id="lockedNote">Only one site is visible until “Key Confirmation” is completed.</div>
+
+  <!-- Bottom key strip -->
+  <div class="keyStrip" id="keyStrip">
+    <span>Key Confirmation</span>
+    <input id="keyInput" placeholder="Enter key…" autocomplete="off" />
+    <button id="keySubmit">Unlock</button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">Proxy Updated!</div>
+
+  <!-- Update Log Modal -->
+  <div class="modalOverlay" id="updateModal">
+    <div class="modal">
+      <div class="modalHeader">
+        <h2>Update Log</h2>
+        <button class="closeBtn" data-close="updateModal">✕</button>
+      </div>
+      <div class="modalBody">
+        <div style="color:rgba(255,255,255,.86); font-weight:900; margin-bottom:10px;">v3.4</div>
+        <div style="color:rgba(255,255,255,.68); line-height:1.55;">
+          • Key changed to Key-8331<br>
+          • Rosin replaced with Lunar + Lunar options modal<br>
+          • Everything else kept the same
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modalOverlay" id="settingsModal">
+    <div class="modal">
+      <div class="modalHeader">
+        <h2>UI Customizer</h2>
+        <button class="closeBtn" data-close="settingsModal">✕</button>
+      </div>
+      <div class="modalBody">
+        <div class="row">
+          <div class="field">
+            <label>Font (25+)</label>
+            <select id="fontSelect"></select>
+          </div>
+          <div class="field">
+            <label>Animated Background</label>
+            <select id="bgSelect">
+              <option value="stars">Stars</option>
+              <option value="snow">Snow</option>
+              <option value="matrix">Matrix</option>
+              <option value="galaxy">Galaxy Pulse</option>
+              <option value="grid">Neon Grid</option>
+              <option value="cyber">Cyber Waves</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Neon Color</label>
+            <input type="color" id="neonPicker" value="#9b59b6">
+          </div>
+          <div class="field">
+            <label>Background Color</label>
+            <input type="color" id="bgPicker" value="#070012">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label>Glow Strength (1 → 5)</label>
+            <input type="range" id="glowSlider" min="1" max="5" step="0.1" value="2.6">
+          </div>
+          <div class="field">
+            <label>UI Radius (sharp → rounded)</label>
+            <input type="range" id="radiusSlider" min="0" max="44" step="1" value="28">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="secondary" id="resetBtn">Reset</button>
+          <button class="primary" id="saveBtn">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lunar Options Modal -->
+  <div class="modalOverlay" id="lunarModal">
+    <div class="modal">
+      <div class="modalHeader">
+        <h2>Lunar Options</h2>
+        <button class="closeBtn" data-close="lunarModal">✕</button>
+      </div>
+      <div class="modalBody" id="lunarModalBody">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin button (hammer) -->
+  <button id="adminBtn" aria-label="Admin Panel" title="Admin Panel">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M14 3l7 7-2 2-2-2-4 4 2 2-2 2-7-7 2-2 2 2 4-4-2-2 2-2z"
+            stroke="rgba(255,255,255,.9)" stroke-width="1.6" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- Keypad modal -->
+  <div class="devOverlay" id="devOverlay">
+    <div class="keypad" role="dialog" aria-modal="true" aria-label="Enter Admin Code">
+      <div class="keypadHeader">
+        <h2>Admin Code</h2>
+        <button class="closeBtn" id="devClose">✕</button>
+      </div>
+      <div class="keypadBody">
+        <div class="pinDots" aria-label="6 digit code">
+          <div class="dot" id="d1"></div><div class="dot" id="d2"></div><div class="dot" id="d3"></div>
+          <div class="dot" id="d4"></div><div class="dot" id="d5"></div><div class="dot" id="d6"></div>
+        </div>
+
+        <div class="padGrid" id="padGrid"></div>
+
+        <div class="padActions">
+          <button class="padKey" id="padClear">Clear</button>
+          <button class="padKey" id="padBack">Back</button>
+        </div>
+
+        <div style="margin-top:10px; color:rgba(255,255,255,.55); font-size:12px; text-align:center;">
+          Numbers only • 6 digits
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dev panel drawer (4 pages x 5 commands) -->
+  <div class="devPanel" id="devPanel">
+    <div class="devPanelHeader">
+      <h3>Developer Panel</h3>
+      <div class="devTabs">
+        <button class="devTab active" data-devtab="1">P1</button>
+        <button class="devTab" data-devtab="2">P2</button>
+        <button class="devTab" data-devtab="3">P3</button>
+        <button class="devTab" data-devtab="4">P4</button>
+        <button class="closeBtn" id="devPanelClose">✕</button>
+      </div>
+    </div>
+
+    <div class="devPanelBody">
+      <!-- PAGE 1 -->
+      <div class="devPage show" data-devpage="1">
+        <button class="devCmd" id="rainbowToggle">Rainbow Buttons 🌈</button>
+        <button class="devCmd" id="shakeToggle">Shake Mode 💥</button>
+        <button class="devCmd" id="cursorTrailToggle">Cursor Trail ✨</button>
+        <button class="devCmd" id="spotlightToggle">Spotlight Cursor 🔦</button>
+        <button class="devCmd" id="slowMoToggle">Slow-Mo Animations 🐢</button>
+      </div>
+
+      <!-- PAGE 2 -->
+      <div class="devPage" data-devpage="2">
+        <button class="devCmd" id="randomizeTheme">Randomize Theme 🎛️</button>
+        <button class="devCmd" id="cycleBg">Cycle Background 🌀</button>
+        <button class="devCmd" id="shuffleCards">Shuffle Cards 🔀</button>
+        <button class="devCmd" id="boostGlow">Boost Glow ⚡</button>
+        <button class="devCmd" id="resetThemeQuick">Reset Theme ♻️</button>
+      </div>
+
+      <!-- PAGE 3 -->
+      <div class="devPage" data-devpage="3">
+        <button class="devCmd" id="confettiBurst">Confetti Burst 🎉</button>
+        <button class="devCmd" id="particlesToggle">Particles Mode ✴️</button>
+        <button class="devCmd" id="typingTitle">Typing Title Effect ⌨️</button>
+        <button class="devCmd" id="bounceCardsToggle">Bouncy Hover 🫧</button>
+        <button class="devCmd" id="nightVisionToggle">Night Vision 👁️</button>
+      </div>
+
+      <!-- PAGE 4 -->
+      <div class="devPage" data-devpage="4">
+        <button class="devCmd" id="copyDiag">Copy Diagnostics 📋</button>
+        <button class="devCmd" id="fpsToggle">FPS Meter 🧭</button>
+        <button class="devCmd" id="gridOverlayToggle">Layout Grid Overlay 📐</button>
+        <button class="devCmd" id="hitboxToggle">Show Click Zones 🎯</button>
+        <button class="devCmd" id="panicHideDev">Panic Hide Dev Panel 🫥</button>
+
+        <div style="margin-top:12px; color:rgba(255,255,255,.55); font-size:12px;">
+          <span id="diagText">Loading…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ===========================
+   1) PUT YOUR ALLOWED LUNAR LINKS HERE
+   =========================== */
+const LUNAR_LINKS = [ https://jeopardy.b-cdn.net/ https://learn-algebra.b-cdn.net/ https://truthordare.b-cdn.net/ https://keyboards.b-cdn.net/ https://mihin.b-cdn.net/ https://securish.b-cdn.net/ https://fire-emoji.b-cdn.net/ https://keepingcontent.b-cdn.net/ https://wizelines.b-cdn.net/ https://bunnies.b-cdn.net/ https://cookingclasses.b-cdn.net/ https://study.b-cdn.net/ https://lunarv2.b-cdn.net/ https://lunarv3.b-cdn.net/ https://lunarmath.b-cdn.net/ https://jeopardy.b-cdn.net/ https://learn-algebra.b-cdn.net/ https://truthordare.b-cdn.net/ https://keyboards.b-cdn.net/ https://mihin.b-cdn.net/ https://braindead.farmaciasamigosdelasalud.com/ https://mathmaticsoflunar.b-cdn.net/ https://goroofdriving.b-cdn.net/ https://craftomancer-might-be-leaking-links.b-cdn.net/ https://lunar-education.b-cdn.net/ https://elit3.b-cdn.net/
+];
+
+/* Build Lunar variants list from LUNAR_LINKS */
+function buildLunarVariants(){
+  const seen = new Set();
+  const cleaned = [];
+  for(const raw of LUNAR_LINKS){
+    const u = String(raw || "").trim();
+    if(!u) continue;
+    if(seen.has(u)) continue;
+    // basic sanity
+    if(!/^https?:\/\//i.test(u)) continue;
+    seen.add(u);
+    cleaned.push(u);
+  }
+  return cleaned.map((url, i) => ({ label: `Lunar (${i+1})`, url }));
+}
+
+/* ===========================
+   Links hub data
+   =========================== */
+const LINKS = [
+  // Visible BEFORE key (only ONE site)
+  { id:"chili1", title:"ChiliBowlGames", url:"https://chiboga.github.io/chilibowlflash/", style:"default", badge:null, initiallyVisible:true },
+
+  // Locked until key
+  {
+    id:"lunar",
+    title:"Lunar",
+    url:"#", // main click can stay disabled, use options button instead
+    style:"rosin",
+    badge:"Unlocked ✦",
+    initiallyVisible:false,
+    variants: buildLunarVariants()
+  },
+  { id:"utopia", title:"Utopia", url:"https://bop.education/", style:"recommended", badge:"Recommended ⭐", initiallyVisible:false },
+  { id:"quasar", title:"Quasar", url:"https://firstspiritualistchurch.org/", style:"default", badge:null, initiallyVisible:false },
+  { id:"truffled", title:"Truffled", url:"https://school.windowpublication.com.np/s", style:"default", badge:null, initiallyVisible:false },
+  { id:"bb", title:"BasketBallGames", url:"https://basketballgames.gitlab.io", style:"default", badge:null, initiallyVisible:false },
+  { id:"chili2", title:"ChiliBowlGames (2)", url:"https://boredmath.github.io/cbf/", style:"default", badge:null, initiallyVisible:false },
+];
+
+/* ===========================
+   Key gating (CHANGED)
+   =========================== */
+const KEY = "Key-8331";
+
+const STORAGE = {
+  unlocked: "roa_unlocked_v1",
+  settings: "roa_settings_v1"
+};
+
+let unlocked = localStorage.getItem(STORAGE.unlocked) === "true";
+
+/* ---------- Render cards ---------- */
+const grid = document.getElementById("grid");
+
+function showModal(id){ document.getElementById(id).classList.add("show"); }
+function hideModal(id){ document.getElementById(id).classList.remove("show"); }
+
+function openLunarModal(variants){
+  const body = document.getElementById("lunarModalBody");
+  body.innerHTML = "";
+
+  if(!variants || !variants.length){
+    const p = document.createElement("div");
+    p.style.color = "rgba(255,255,255,.72)";
+    p.style.fontWeight = "800";
+    p.style.lineHeight = "1.5";
+    p.textContent = "No Lunar links added yet. Add URLs into the LUNAR_LINKS array in the script.";
+    body.appendChild(p);
+    showModal("lunarModal");
+    return;
+  }
+
+  variants.forEach(v => {
+    const b = document.createElement("button");
+    b.className = "variantBtn";
+    b.type = "button";
+    b.textContent = v.label;
+    b.addEventListener("click", () => {
+      if(v.url && v.url !== "#") window.location.href = v.url;
+    });
+    body.appendChild(b);
+  });
+
+  showModal("lunarModal");
+}
+
+function render(){
+  grid.innerHTML = "";
+
+  LINKS.forEach(item => {
+    const isVisible = unlocked ? true : item.initiallyVisible;
+    if(!isVisible) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "cardWrap";
+
+    const card = document.createElement("div");
+    card.className = "card";
+    if(item.style === "recommended") card.classList.add("recommended");
+    if(item.style === "rosin") card.classList.add("rosin");
+
+    card.innerHTML = `
+      ${item.badge ? `<div class="badge">${item.badge}</div>` : ""}
+      <div class="cardTitle">${item.title}</div>
+    `;
+
+    card.addEventListener("click", () => {
+      if(item.url && item.url !== "#") window.location.href = item.url;
+    });
+
+    wrap.appendChild(card);
+
+    // Lunar options button under the Lunar card
+    if(item.id === "lunar"){
+      const subWrap = document.createElement("div");
+      subWrap.className = "subBtnWrap";
+
+      const btn = document.createElement("button");
+      btn.className = "subBtn";
+      btn.type = "button";
+      btn.textContent = "Lunar options ▾";
+
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // refresh variants in case you edited LUNAR_LINKS
+        item.variants = buildLunarVariants();
+        openLunarModal(item.variants);
+      });
+
+      subWrap.appendChild(btn);
+      wrap.appendChild(subWrap);
+    }
+
+    grid.appendChild(wrap);
+  });
+
+  document.getElementById("lockedNote").style.display = unlocked ? "none" : "block";
+  const sb = document.getElementById("settingsBtn");
+  sb.style.opacity = unlocked ? "1" : ".55";
+  sb.title = unlocked ? "Settings" : "Unlock to use settings";
+}
+render();
+
+/* ---------- Stars (canvas) + shooting stars in stars mode ---------- */
+const canvas = document.getElementById("stars");
+const ctx = canvas.getContext("2d");
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
+
+const baseStarCount = 180;
+const stars = Array.from({length: baseStarCount}, () => ({
+  x: Math.random()*canvas.width,
+  y: Math.random()*canvas.height,
+  r: Math.random()*1.6 + 0.2,
+  v: Math.random()*0.25 + 0.05,
+  a: Math.random()*0.6 + 0.25
+}));
+
+let shooters = [];
+function spawnShooter(){
+  if(document.body.dataset.bg !== "stars") return;
+  if(Math.random() < 0.02){
+    const startX = Math.random()*canvas.width*0.6;
+    const startY = Math.random()*canvas.height*0.4;
+    shooters.push({x:startX, y:startY, vx: 10+Math.random()*10, vy: 4+Math.random()*7, life: 0});
+  }
+}
+
+function tick(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(const s of stars){
+    s.y += s.v;
+    if(s.y > canvas.height+5){ s.y = -5; s.x = Math.random()*canvas.width; }
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = "#caa1ff";
+    ctx.fillRect(s.x, s.y, s.r, s.r);
+  }
+  ctx.globalAlpha = 1;
+
+  spawnShooter();
+  shooters = shooters.filter(sh => sh.life < 35);
+  for(const sh of shooters){
+    sh.life++;
+    sh.x += sh.vx;
+    sh.y += sh.vy;
+    const t = 1 - (sh.life/35);
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = "rgba(200,150,255,.85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sh.x, sh.y);
+    ctx.lineTo(sh.x - sh.vx*2.5, sh.y - sh.vy*2.5);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  requestAnimationFrame(tick);
+}
+tick();
+
+/* ---------- Animated backgrounds ---------- */
+function applyAnimatedBackground(mode){
+  const allowed = new Set(["stars","snow","matrix","galaxy","grid","cyber"]);
+  document.body.dataset.bg = allowed.has(mode) ? mode : "stars";
+}
+
+/* ---------- Modals ---------- */
+document.getElementById("updateBtn").addEventListener("click", () => showModal("updateModal"));
+document.getElementById("settingsBtn").addEventListener("click", () => {
+  if(!unlocked) return;
+  showModal("settingsModal");
+});
+document.querySelectorAll("[data-close]").forEach(btn=>{
+  btn.addEventListener("click", (e)=> hideModal(e.currentTarget.dataset.close));
+});
+document.getElementById("updateModal").addEventListener("click", (e)=>{ if(e.target.id==="updateModal") hideModal("updateModal"); });
+document.getElementById("settingsModal").addEventListener("click", (e)=>{ if(e.target.id==="settingsModal") hideModal("settingsModal"); });
+document.getElementById("lunarModal").addEventListener("click", (e)=>{ if(e.target.id==="lunarModal") hideModal("lunarModal"); });
+
+/* ---------- Toast ---------- */
+const toast = document.getElementById("toast");
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(()=>toast.classList.remove("show"), 2400);
+}
+
+/* ---------- Key confirmation ---------- */
+document.getElementById("keySubmit").addEventListener("click", () => {
+  const v = document.getElementById("keyInput").value.trim();
+  if(v === KEY){
+    unlocked = true;
+    localStorage.setItem(STORAGE.unlocked, "true");
+    showToast("Proxy Updated!");
+    render();
+  } else {
+    showToast("Incorrect key");
+  }
+});
+document.getElementById("keyInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("keySubmit").click();
+});
+
+/* ---------- Settings (25+ fonts + save persistent) ---------- */
+const fontSelect = document.getElementById("fontSelect");
+const neonPicker = document.getElementById("neonPicker");
+const bgPicker = document.getElementById("bgPicker");
+const glowSlider = document.getElementById("glowSlider");
+const radiusSlider = document.getElementById("radiusSlider");
+const bgSelect = document.getElementById("bgSelect");
+
+const fonts = [
+  "Orbitron","Montserrat","Rajdhani","Space Grotesk","Outfit","Titillium Web","Exo 2","Kanit","Ubuntu","Oswald",
+  "Comfortaa","Quicksand","Anton","Bebas Neue","Abel","Barlow","Cairo","Chakra Petch","Dosis","Electrolize",
+  "Fira Sans","IBM Plex Mono","Inter","Josefin Sans","Nunito","PT Sans","Righteous"
+];
+fonts.forEach(f=>{
+  const o=document.createElement("option");
+  o.value=f; o.textContent=f;
+  fontSelect.appendChild(o);
+});
+
+function applyTheme(settings){
+  if(settings.font) document.body.style.fontFamily = settings.font;
+  if(settings.neon) document.documentElement.style.setProperty("--neon", settings.neon);
+  if(settings.bg) document.documentElement.style.setProperty("--bg", settings.bg);
+  if(settings.glow) document.documentElement.style.setProperty("--glow", settings.glow);
+  if(settings.radius) document.documentElement.style.setProperty("--radius", settings.radius + "px");
+
+  const h1 = document.querySelector("h1");
+  const neon = getComputedStyle(document.documentElement).getPropertyValue("--neon").trim() || "#9b59b6";
+  h1.style.color = neon;
+  h1.style.textShadow = `0 0 20px ${neon}55, 0 0 50px ${neon}33`;
+
+  applyAnimatedBackground(settings.bgAnim || "stars");
+}
+
+function saveSettings(){
+  const settings = {
+    font: fontSelect.value,
+    neon: neonPicker.value,
+    bg: bgPicker.value,
+    glow: glowSlider.value,
+    radius: radiusSlider.value,
+    bgAnim: bgSelect.value
+  };
+  localStorage.setItem(STORAGE.settings, JSON.stringify(settings));
+  applyTheme(settings);
+  showToast("Saved!");
+}
+
+function loadSettings(){
+  const raw = localStorage.getItem(STORAGE.settings);
+  if(!raw) return null;
+  try{ return JSON.parse(raw); } catch { return null; }
+}
+
+function resetSettings(){
+  localStorage.removeItem(STORAGE.settings);
+  const defaults = { font:"Orbitron", neon:"#9b59b6", bg:"#070012", glow:"2.6", radius:"28", bgAnim:"stars" };
+
+  fontSelect.value = defaults.font;
+  neonPicker.value = defaults.neon;
+  bgPicker.value = defaults.bg;
+  glowSlider.value = defaults.glow;
+  radiusSlider.value = defaults.radius;
+  bgSelect.value = defaults.bgAnim;
+
+  applyTheme(defaults);
+  showToast("Reset!");
+}
+
+document.getElementById("saveBtn").addEventListener("click", saveSettings);
+document.getElementById("resetBtn").addEventListener("click", resetSettings);
+
+["neonPicker","bgPicker","glowSlider","radiusSlider","bgSelect","fontSelect"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", ()=>{
+    const live = {
+      font: fontSelect.value,
+      neon: neonPicker.value,
+      bg: bgPicker.value,
+      glow: glowSlider.value,
+      radius: radiusSlider.value,
+      bgAnim: bgSelect.value
+    };
+    applyTheme(live);
+  });
+});
+
+/* init settings */
+(function init(){
+  const saved = loadSettings();
+  const defaults = saved || { font:"Orbitron", neon:"#9b59b6", bg:"#070012", glow:"2.6", radius:"28", bgAnim:"stars" };
+
+  fontSelect.value = defaults.font || "Orbitron";
+  neonPicker.value = defaults.neon || "#9b59b6";
+  bgPicker.value = defaults.bg || "#070012";
+  glowSlider.value = defaults.glow || "2.6";
+  radiusSlider.value = defaults.radius || "28";
+  bgSelect.value = defaults.bgAnim || "stars";
+
+  applyTheme(defaults);
+  if(unlocked) render();
+})();
+
+/* ===== Admin Panel (Keypad + Dev Drawer) ===== */
+const ADMIN_CODE = "793046";
+const DEV_UNLOCK_KEY = "roa_dev_unlocked_v1";
+
+const adminBtn = document.getElementById("adminBtn");
+const devOverlay = document.getElementById("devOverlay");
+const devClose = document.getElementById("devClose");
+const devPanel = document.getElementById("devPanel");
+const devPanelClose = document.getElementById("devPanelClose");
+
+const padGrid = document.getElementById("padGrid");
+const padClear = document.getElementById("padClear");
+const padBack = document.getElementById("padBack");
+
+const dots = ["d1","d2","d3","d4","d5","d6"].map(id => document.getElementById(id));
+
+let pin = "";
+let devUnlocked = localStorage.getItem(DEV_UNLOCK_KEY) === "true";
+
+function updateDots(){
+  dots.forEach((d,i)=> d.classList.toggle("filled", i < pin.length));
+}
+function openKeypad(){
+  pin = "";
+  updateDots();
+  devOverlay.classList.add("show");
+}
+function closeKeypad(){
+  devOverlay.classList.remove("show");
+}
+function toggleDevPanel(){
+  devPanel.classList.toggle("show");
+}
+
+adminBtn.addEventListener("click", () => {
+  if(!devUnlocked){
+    openKeypad();
+  } else {
+    toggleDevPanel();
+  }
+});
+devClose.addEventListener("click", closeKeypad);
+devOverlay.addEventListener("click", (e)=>{ if(e.target === devOverlay) closeKeypad(); });
+devPanelClose.addEventListener("click", ()=> devPanel.classList.remove("show"));
+
+function pressDigit(n){
+  if(pin.length >= 6) return;
+  pin += String(n);
+  updateDots();
+
+  if(pin.length === 6){
+    if(pin === ADMIN_CODE){
+      devUnlocked = true;
+      localStorage.setItem(DEV_UNLOCK_KEY, "true");
+      closeKeypad();
+      devPanel.classList.add("show");
+      showToast("Dev mode unlocked!");
+    } else {
+      const box = devOverlay.querySelector(".keypad");
+      box.style.animation = "none";
+      void box.offsetWidth;
+      box.style.animation = "wobble .35s linear 1";
+      pin = "";
+      updateDots();
+      showToast("Wrong code");
+    }
+  }
+}
+
+// Build keypad
+(function buildPad(){
+  const order = [1,2,3,4,5,6,7,8,9,"",0,""];
+  order.forEach(v=>{
+    const btn = document.createElement("button");
+    btn.className = "padKey";
+    btn.type = "button";
+    btn.textContent = v === "" ? " " : String(v);
+    btn.disabled = (v === "");
+    btn.style.opacity = (v === "") ? "0" : "1";
+    btn.addEventListener("click", ()=> { if(v !== "") pressDigit(v); });
+    padGrid.appendChild(btn);
+  });
+})();
+
+padClear.addEventListener("click", ()=>{ pin=""; updateDots(); });
+padBack.addEventListener("click", ()=>{
+  pin = pin.slice(0, -1);
+  updateDots();
+});
+
+// Keyboard support (numbers only)
+window.addEventListener("keydown", (e)=>{
+  if(!devOverlay.classList.contains("show")) return;
+  if(e.key >= "0" && e.key <= "9") pressDigit(e.key);
+  if(e.key === "Backspace") { pin = pin.slice(0,-1); updateDots(); }
+  if(e.key === "Escape") closeKeypad();
+});
+
+/* ===== Dev panel: 4 pages × 5 commands ===== */
+const devTabs = Array.from(document.querySelectorAll(".devTab"));
+const devPages = Array.from(document.querySelectorAll(".devPage"));
+
+function setDevPage(n){
+  devTabs.forEach(t => t.classList.toggle("active", t.dataset.devtab === String(n)));
+  devPages.forEach(p => p.classList.toggle("show", p.dataset.devpage === String(n)));
+}
+devTabs.forEach(t => t.addEventListener("click", ()=> setDevPage(t.dataset.devtab)));
+setDevPage(1);
+
+function toggleBodyClass(cls){
+  document.body.classList.toggle(cls);
+  return document.body.classList.contains(cls);
+}
+function rand(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+/* Page 1 */
+document.getElementById("rainbowToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("rainbowMode");
+  showToast(on ? "Rainbow Buttons ON 🌈" : "Rainbow Buttons OFF");
+});
+document.getElementById("shakeToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("shakeMode");
+  showToast(on ? "Shake ON 💥" : "Shake OFF");
+});
+
+let trailOn = false;
+function spawnTrailDot(x,y){
+  const d = document.createElement("div");
+  d.className = "trailDot";
+  d.style.left = (x-4) + "px";
+  d.style.top = (y-4) + "px";
+  const neon = getComputedStyle(document.documentElement).getPropertyValue("--neon").trim() || "#9b59b6";
+  d.style.background = neon;
+  d.style.boxShadow = `0 0 18px ${neon}55`;
+  document.body.appendChild(d);
+  setTimeout(()=>{ d.style.opacity="0"; d.style.transform="scale(.6)"; }, 30);
+  setTimeout(()=> d.remove(), 500);
+}
+document.getElementById("cursorTrailToggle").addEventListener("click", ()=>{
+  trailOn = !trailOn;
+  showToast(trailOn ? "Cursor Trail ON ✨" : "Cursor Trail OFF");
+});
+window.addEventListener("mousemove", (e)=>{
+  if(!trailOn) return;
+  spawnTrailDot(e.clientX, e.clientY);
+});
+
+const spotlight = document.getElementById("spotlight");
+let spotlightOn = false;
+document.getElementById("spotlightToggle").addEventListener("click", ()=>{
+  spotlightOn = !spotlightOn;
+  document.body.classList.toggle("spotlightOn", spotlightOn);
+  showToast(spotlightOn ? "Spotlight ON 🔦" : "Spotlight OFF");
+});
+window.addEventListener("mousemove", (e)=>{
+  if(!spotlightOn) return;
+  spotlight.style.background = `radial-gradient(circle 140px at ${e.clientX}px ${e.clientY}px, rgba(255,255,255,.10), rgba(0,0,0,.65) 60%, rgba(0,0,0,.85) 100%)`;
+});
+
+document.getElementById("slowMoToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("slowMo");
+  showToast(on ? "Slow-Mo ON 🐢" : "Slow-Mo OFF");
+});
+
+/* Page 2 */
+document.getElementById("randomizeTheme").addEventListener("click", ()=>{
+  const neon = `hsl(${rand(0,360)} 85% 60%)`;
+  const radius = String(rand(8,44));
+  const glow = (Math.random()*3.6 + 1.2).toFixed(1);
+
+  document.documentElement.style.setProperty("--neon", neon);
+  document.documentElement.style.setProperty("--radius", radius + "px");
+  document.documentElement.style.setProperty("--glow", glow);
+
+  const h1 = document.querySelector("h1");
+  if(h1){
+    h1.style.color = neon;
+    h1.style.textShadow = `0 0 20px ${neon}55, 0 0 50px ${neon}33`;
+  }
+  showToast("Theme randomized 🎛️");
+});
+
+const bgModes = ["stars","snow","matrix","galaxy","grid","cyber"];
+document.getElementById("cycleBg").addEventListener("click", ()=>{
+  const current = document.body.dataset.bg || "stars";
+  const idx = bgModes.indexOf(current);
+  const next = bgModes[(idx + 1 + bgModes.length) % bgModes.length];
+  applyAnimatedBackground(next);
+  showToast("Background: " + next);
+});
+
+document.getElementById("shuffleCards").addEventListener("click", ()=>{
+  for(let i = LINKS.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [LINKS[i], LINKS[j]] = [LINKS[j], LINKS[i]];
+  }
+  render();
+  showToast("Cards shuffled 🔀");
+});
+
+document.getElementById("boostGlow").addEventListener("click", ()=>{
+  const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--glow")) || 2.6;
+  const next = Math.min(5, (current + 0.8));
+  document.documentElement.style.setProperty("--glow", String(next));
+  showToast("Glow boosted ⚡ (" + next.toFixed(1) + ")");
+});
+
+document.getElementById("resetThemeQuick").addEventListener("click", ()=>{
+  document.documentElement.style.setProperty("--neon", "#9b59b6");
+  document.documentElement.style.setProperty("--bg", "#070012");
+  document.documentElement.style.setProperty("--glow", "2.6");
+  document.documentElement.style.setProperty("--radius", "28px");
+  applyAnimatedBackground("stars");
+  const h1 = document.querySelector("h1");
+  if(h1){
+    h1.style.color = "#9b59b6";
+    h1.style.textShadow = `0 0 20px #9b59b655, 0 0 50px #9b59b633`;
+  }
+  showToast("Theme reset ♻️");
+});
+
+/* Page 3 */
+function confetti(count=80){
+  for(let i=0;i<count;i++){
+    const p = document.createElement("div");
+    p.className = "trailDot";
+    p.style.width = rand(6,12) + "px";
+    p.style.height = rand(6,12) + "px";
+    p.style.borderRadius = rand(2,10) + "px";
+    p.style.left = rand(0, window.innerWidth) + "px";
+    p.style.top = rand(-20, 20) + "px";
+    p.style.background = `hsl(${rand(0,360)} 90% 60%)`;
+    p.style.opacity = "0.95";
+    p.style.boxShadow = "none";
+    document.body.appendChild(p);
+
+    const fall = rand(700, 1400);
+    const drift = rand(-140, 140);
+    p.animate([
+      { transform: `translate(0,0) rotate(0deg)` },
+      { transform: `translate(${drift}px, ${window.innerHeight + 120}px) rotate(${rand(180,720)}deg)` }
+    ], { duration: fall, easing: "cubic-bezier(.2,.8,.2,1)" });
+
+    setTimeout(()=>p.remove(), fall);
+  }
+}
+document.getElementById("confettiBurst").addEventListener("click", ()=>{
+  confetti(90);
+  showToast("Confetti! 🎉");
+});
+
+let particlesOn = false;
+document.getElementById("particlesToggle").addEventListener("click", ()=>{
+  particlesOn = !particlesOn;
+  if(particlesOn){
+    for(let i=0;i<220;i++){
+      stars.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, r: Math.random()*1.4 + 0.2, v: Math.random()*0.35 + 0.06, a: Math.random()*0.55 + 0.20 });
+    }
+  }else{
+    stars.splice(baseStarCount);
+  }
+  showToast(particlesOn ? "Particles ON ✴️" : "Particles OFF");
+});
+
+let typingOn = false;
+let typingTimer = null;
+document.getElementById("typingTitle").addEventListener("click", ()=>{
+  const h1 = document.querySelector("h1");
+  if(!h1) return;
+
+  if(typingOn){
+    typingOn = false;
+    clearInterval(typingTimer);
+    h1.textContent = "Roa's Proxy Hub";
+    showToast("Typing OFF");
+    return;
+  }
+
+  typingOn = true;
+  const text = "Roa's Proxy Hub";
+  let i=0;
+  h1.textContent = "";
+  typingTimer = setInterval(()=>{
+    h1.textContent = text.slice(0, i++);
+    if(i > text.length){ i=0; h1.textContent=""; }
+  }, 120);
+  showToast("Typing ON ⌨️");
+});
+
+document.getElementById("bounceCardsToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("bouncy");
+  showToast(on ? "Bouncy hover ON 🫧" : "Bouncy hover OFF");
+});
+
+document.getElementById("nightVisionToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("nightVision");
+  showToast(on ? "Night vision ON 👁️" : "Night vision OFF");
+});
+
+/* Page 4 */
+const diagText = document.getElementById("diagText");
+function refreshDiagnostics(){
+  const info = {
+    time: new Date().toLocaleString(),
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    bg: document.body.dataset.bg || "stars",
+    neon: getComputedStyle(document.documentElement).getPropertyValue("--neon").trim(),
+    glow: getComputedStyle(document.documentElement).getPropertyValue("--glow").trim(),
+    radius: getComputedStyle(document.documentElement).getPropertyValue("--radius").trim(),
+    unlocked,
+    devUnlocked
+  };
+  if(diagText) diagText.textContent = `${info.viewport} • bg=${info.bg} • neon=${info.neon}`;
+  return info;
+}
+setInterval(refreshDiagnostics, 900);
+refreshDiagnostics();
+
+document.getElementById("copyDiag").addEventListener("click", async ()=>{
+  const info = refreshDiagnostics();
+  try{
+    await navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+    showToast("Diagnostics copied 📋");
+  }catch{
+    showToast("Clipboard blocked");
+  }
+});
+
+const fpsMeter = document.getElementById("fpsMeter");
+let fpsOn = false;
+let frames = 0;
+let last = performance.now();
+
+function fpsLoop(now){
+  if(!fpsOn) return;
+  frames++;
+  if(now - last >= 500){
+    const fps = Math.round((frames * 1000) / (now - last));
+    fpsMeter.textContent = "FPS: " + fps;
+    frames = 0;
+    last = now;
+  }
+  requestAnimationFrame(fpsLoop);
+}
+
+document.getElementById("fpsToggle").addEventListener("click", ()=>{
+  fpsOn = !fpsOn;
+  fpsMeter.classList.toggle("show", fpsOn);
+  if(fpsOn){
+    frames = 0; last = performance.now();
+    requestAnimationFrame(fpsLoop);
+    showToast("FPS meter ON 🧭");
+  } else {
+    showToast("FPS meter OFF");
+  }
+});
+
+document.getElementById("gridOverlayToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("gridOn");
+  showToast(on ? "Grid overlay ON 📐" : "Grid overlay OFF");
+});
+
+document.getElementById("hitboxToggle").addEventListener("click", ()=>{
+  const on = toggleBodyClass("hitboxOn");
+  showToast(on ? "Click zones ON 🎯" : "Click zones OFF");
+});
+
+document.getElementById("panicHideDev").addEventListener("click", ()=>{
+  devPanel.classList.remove("show");
+  showToast("Dev panel hidden 🫥");
+});
+</script>
+</body>
+</html>
